@@ -11,6 +11,9 @@ namespace BSPConvert.Cmd
 			[Option("nopak", Required = false, HelpText = "Export materials into folders instead of embedding them in the BSP.")]
 			public bool NoPak { get; set; }
 
+			[Option("notooldisps", Required = false, HelpText = "Skip converting patches with tool textures to displacements.")]
+			public bool NoToolDisplacements { get; set; }
+
 			[Option("subdiv", Required = false, Default = 4, HelpText = "Displacement subdivisions [2-4].")]
 			public int DisplacementPower { get; set; }
 
@@ -61,6 +64,7 @@ namespace BSPConvert.Cmd
 				var converterOptions = new BSPConverterOptions()
 				{
 					noPak = options.NoPak,
+					noToolDisplacements = options.NoToolDisplacements,
 					DisplacementPower = options.DisplacementPower,
 					minDamageToConvertTrigger = options.MinDamageToConvertTrigger,
 					ignoreZones = options.IgnoreZones,
