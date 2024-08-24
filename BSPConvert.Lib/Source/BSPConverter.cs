@@ -48,6 +48,7 @@ namespace BSPConvert.Lib
 	public class BSPConverterOptions
 	{
 		public bool noPak;
+		public bool noToolDisplacements;
 		private int displacementPower;
 		public int DisplacementPower
 		{
@@ -1055,6 +1056,9 @@ namespace BSPConvert.Lib
 
 		private void CreatePatchDisplacement(int sFaceIndex, Vertex[] faceVerts, int patchWidth, int patchStartVertex, Face qFace)
 		{
+			if (options.noToolDisplacements && qFace.Texture.Name.StartsWith("tools/"))
+				return;
+
 			var data = new byte[Displacement.GetStructLength(sourceBsp.MapType)];
 			var displacement = new Displacement(data, sourceBsp.Displacements);
 
