@@ -826,7 +826,7 @@ namespace BSPConvert.Lib
 				target = "!activator",
 				action = "SetHaste",
 				param = duration,
-				delay = delay, //hack to make giving haste happen after target_init strip
+				delay = delay,
 				fireOnce = -1
 			};
 			entity.connections.Add(connection);
