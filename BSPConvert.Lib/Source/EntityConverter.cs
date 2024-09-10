@@ -266,8 +266,8 @@ namespace BSPConvert.Lib
 						FireTargetInitOnOutput(button, target, "OnPressed", delay);
 						break;
 					case "target_remove_powerups":
-						SetHasteOnOutput(button, "0", "OnPressed", delay, true);
-						SetQuadOnOutput(button, "0", "OnPressed", delay, true);
+						SetHasteOnOutput(button, "0", "OnPressed", delay);
+						SetQuadOnOutput(button, "0", "OnPressed", delay);
 						break;
 				}
 
@@ -529,8 +529,8 @@ namespace BSPConvert.Lib
 						ConvertTargetPushTrigger(trigger, target, delay);
 						break;
 					case "target_remove_powerups":
-						SetHasteOnOutput(trigger, "0", "OnStartTouch", delay, true);
-						SetQuadOnOutput(trigger, "0", "OnStartTouch", delay, true);
+						SetHasteOnOutput(trigger, "0", "OnStartTouch", delay);
+						SetQuadOnOutput(trigger, "0", "OnStartTouch", delay);
 						break;
 					case "func_door":
 						OpenDoorOnOutput(trigger, target, "OnStartTouch", delay);
@@ -731,8 +731,8 @@ namespace BSPConvert.Lib
 			var spawnflags = (TargetInitFlags)targetInit.Spawnflags;
 			if (!spawnflags.HasFlag(TargetInitFlags.KeepPowerUps))
 			{
-				SetHasteOnOutput(entity, "0", output, delay, true);
-				SetQuadOnOutput(entity, "0", output, delay, true);
+				SetHasteOnOutput(entity, "0", output, delay);
+				SetQuadOnOutput(entity, "0", output, delay);
 			}
 			if (!spawnflags.HasFlag(TargetInitFlags.KeepWeapons))
 			{
@@ -797,14 +797,14 @@ namespace BSPConvert.Lib
 				switch (target.ClassName)
 				{
 					case "item_haste":
-						SetHasteOnOutput(entity, ConvertPowerupCount(target["count"]), output, delay, false);
+						SetHasteOnOutput(entity, ConvertPowerupCount(target["count"]), output, delay + 0.008f); //hack to make giving haste happen after target_init strip
 						break;
 					case "item_enviro": // TODO: Not supported yet
 						break;
 					case "item_flight": // TODO: Not supported yet
 						break;
 					case "item_quad":
-						SetQuadOnOutput(entity, ConvertPowerupCount(target["count"]), output, delay, false);
+						SetQuadOnOutput(entity, ConvertPowerupCount(target["count"]), output, delay + 0.008f); //hack to make giving quad happen after target_init strip
 						break;
 					default:
 						if (target.ClassName.StartsWith("weapon_"))
@@ -818,7 +818,7 @@ namespace BSPConvert.Lib
 			}
 		}
 
-		private void SetHasteOnOutput(Entity entity, string duration, string output, float delay, bool init)
+		private void SetHasteOnOutput(Entity entity, string duration, string output, float delay)
 		{
 			var connection = new Entity.EntityConnection()
 			{
@@ -826,13 +826,13 @@ namespace BSPConvert.Lib
 				target = "!activator",
 				action = "SetHaste",
 				param = duration,
-				delay = init ? delay : delay + 0.008f, //hack to make giving haste happen after target_init strip
+				delay = delay, //hack to make giving haste happen after target_init strip
 				fireOnce = -1
 			};
 			entity.connections.Add(connection);
 		}
 
-		private static void SetQuadOnOutput(Entity entity, string duration, string output, float delay, bool init)
+		private static void SetQuadOnOutput(Entity entity, string duration, string output, float delay)
 		{
 			var connection = new Entity.EntityConnection()
 			{
@@ -840,7 +840,7 @@ namespace BSPConvert.Lib
 				target = "!activator",
 				action = "SetDamageBoost",
 				param = duration,
-				delay = init ? delay : delay + 0.008f, //hack to make giving quad happen after target_init strip
+				delay = delay,
 				fireOnce = -1
 			};
 			entity.connections.Add(connection);
