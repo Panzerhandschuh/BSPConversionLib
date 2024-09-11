@@ -75,6 +75,7 @@ namespace BSPConvert.Lib
 		private Dictionary<string, List<Entity>> entityDict = new Dictionary<string, List<Entity>>();
 		private List<Entity> removeEntities = new List<Entity>(); // Entities to remove after conversion (ex: remove weapons after converting a trigger_multiple that references target_give). TODO: It might be better to convert entities by priority, such as trigger_multiples first so that target_give weapons can be ignored after
 		private int currentCheckpointIndex = 2;
+		private int platIndex = 1;
 		private Lump<Model> q3Models;
 
 		private const string MOMENTUM_START_ENTITY = "_momentum_player_start_";
@@ -144,6 +145,9 @@ namespace BSPConvert.Lib
 					case "func_static":
 						ConvertFuncStatic(entity);
 						break;
+					case "func_plat":
+						ConvertFuncPlat(entity);
+						break;
 					// Ignore these entities since they have no use in Source engine
 					case "target_speaker": // converting this entity without a trigger input currently does nothing, convert during trigger_multiple conversion instead for now
 					case "target_startTimer":
@@ -207,6 +211,80 @@ namespace BSPConvert.Lib
 				return;
 
 			funcStatic.ClassName = "func_brush";
+		}
+
+		private void ConvertFuncPlat(Entity entity)
+		{
+			var moveDistance = 0f;
+			var brushThickness = GetBrushThickness(entity);
+
+			if (float.TryParse(entity["height"], out var height))
+				moveDistance = height + brushThickness;
+			else if (float.TryParse(entity["lip"], out var lip))
+				moveDistance = -(lip - 2 - (brushThickness * 2));
+
+			if (string.IsNullOrEmpty(entity.Name))
+			{
+				entity.Name = $"plat{platIndex}";
+				CreatePlatTrigger(entity);
+				platIndex++;
+			}
+			entity.ClassName = "func_door";
+			entity["lip"] = moveDistance.ToString();
+			entity["movedir"] = "-90 0 0";
+			entity["spawnpos"] = "1";
+			entity["spawnflags"] = "0";
+			entity["wait"] = "-1";
+		}
+
+		private void CreatePlatTrigger(Entity entity)
+		{
+			var trigger = new Entity
+			{
+				ClassName = "trigger_multiple",
+				Model = entity.Model,
+				Spawnflags = 1,
+				Origin = new Vector3(entity.Origin.X, entity.Origin.Y, entity.Origin.Z + 2)
+			};
+			trigger["parentname"] = entity.Name;
+			sourceEntities.Add(trigger);
+
+			AddPlatTriggerConnections(entity, trigger);
+		}
+
+		private void AddPlatTriggerConnections(Entity plat, Entity trigger)
+		{
+			var connection = new Entity.EntityConnection()
+			{
+				name = "onStartTouch",
+				target = plat.Name,
+				action = "close",
+				param = null,
+				delay = 0,
+				fireOnce = -1
+			};
+			trigger.connections.Add(connection);
+
+			var connection2 = new Entity.EntityConnection()
+			{
+				name = "onFullyClosed",
+				target = plat.Name,
+				action = "open",
+				param = null,
+				delay = 3,
+				fireOnce = -1
+			};
+			plat.connections.Add(connection2);
+		}
+
+		private float GetBrushThickness(Entity entity)
+		{
+			var modelIndexStr = entity["model"].Substring(1); // Removes * from model index
+			if (!int.TryParse(modelIndexStr, out var modelIndex))
+				return 0;
+			var model = q3Models[modelIndex];
+
+			return model.Maximums.Z - model.Minimums.Z;
 		}
 
 		private void ConvertFuncDoor(Entity door)
