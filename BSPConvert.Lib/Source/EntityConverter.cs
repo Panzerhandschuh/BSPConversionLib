@@ -75,7 +75,6 @@ namespace BSPConvert.Lib
 		private Dictionary<string, List<Entity>> entityDict = new Dictionary<string, List<Entity>>();
 		private List<Entity> removeEntities = new List<Entity>(); // Entities to remove after conversion (ex: remove weapons after converting a trigger_multiple that references target_give). TODO: It might be better to convert entities by priority, such as trigger_multiples first so that target_give weapons can be ignored after
 		private int currentCheckpointIndex = 2;
-		private int platIndex = 1;
 		private Lump<Model> q3Models;
 
 		private const string MOMENTUM_START_ENTITY = "_momentum_player_start_";
@@ -215,19 +214,19 @@ namespace BSPConvert.Lib
 
 		private void ConvertFuncPlat(Entity entity)
 		{
+			const int q3LipMod = 2; // Quake adds 2 units to lip for some reason
 			var moveDistance = 0f;
 			var brushThickness = GetBrushThickness(entity);
 
 			if (float.TryParse(entity["height"], out var height))
 				moveDistance = height + brushThickness;
 			else if (float.TryParse(entity["lip"], out var lip))
-				moveDistance = -(lip - 2 - (brushThickness * 2));
+				moveDistance = -(lip - q3LipMod - (brushThickness * 2));
 
 			if (string.IsNullOrEmpty(entity.Name))
 			{
-				entity.Name = $"plat{platIndex}";
+				entity.Name = $"plat{entity.ModelNumber}";
 				CreatePlatTrigger(entity);
-				platIndex++;
 			}
 			entity.ClassName = "func_door";
 			entity["lip"] = moveDistance.ToString();
@@ -271,7 +270,7 @@ namespace BSPConvert.Lib
 				target = plat.Name,
 				action = "open",
 				param = null,
-				delay = 3,
+				delay = 3, // placeholder value TODO: replicate actual func_plat behaviour
 				fireOnce = -1
 			};
 			plat.connections.Add(connection2);
@@ -279,10 +278,7 @@ namespace BSPConvert.Lib
 
 		private float GetBrushThickness(Entity entity)
 		{
-			var modelIndexStr = entity["model"].Substring(1); // Removes * from model index
-			if (!int.TryParse(modelIndexStr, out var modelIndex))
-				return 0;
-			var model = q3Models[modelIndex];
+			var model = q3Models[entity.ModelNumber];
 
 			return model.Maximums.Z - model.Minimums.Z;
 		}
