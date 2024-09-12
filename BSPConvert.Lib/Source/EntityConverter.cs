@@ -144,6 +144,9 @@ namespace BSPConvert.Lib
 					case "func_static":
 						ConvertFuncStatic(entity);
 						break;
+					case "func_plat":
+						ConvertFuncPlat(entity);
+						break;
 					// Ignore these entities since they have no use in Source engine
 					case "target_speaker": // converting this entity without a trigger input currently does nothing, convert during trigger_multiple conversion instead for now
 					case "target_startTimer":
@@ -207,6 +210,77 @@ namespace BSPConvert.Lib
 				return;
 
 			funcStatic.ClassName = "func_brush";
+		}
+
+		private void ConvertFuncPlat(Entity entity)
+		{
+			const int q3LipMod = 2; // Quake adds 2 units to lip for some reason
+			var moveDistance = 0f;
+			var brushThickness = GetBrushThickness(entity);
+
+			if (float.TryParse(entity["height"], out var height))
+				moveDistance = height + brushThickness;
+			else if (float.TryParse(entity["lip"], out var lip))
+				moveDistance = -(lip - q3LipMod - (brushThickness * 2));
+
+			if (string.IsNullOrEmpty(entity.Name))
+			{
+				entity.Name = $"plat{entity.ModelNumber}";
+				CreatePlatTrigger(entity);
+			}
+			entity.ClassName = "func_door";
+			entity["lip"] = moveDistance.ToString();
+			entity["movedir"] = "-90 0 0";
+			entity["spawnpos"] = "1";
+			entity["spawnflags"] = "0";
+			entity["wait"] = "-1";
+		}
+
+		private void CreatePlatTrigger(Entity entity)
+		{
+			var trigger = new Entity
+			{
+				ClassName = "trigger_multiple",
+				Model = entity.Model,
+				Spawnflags = 1,
+				Origin = new Vector3(entity.Origin.X, entity.Origin.Y, entity.Origin.Z + 2)
+			};
+			trigger["parentname"] = entity.Name;
+			sourceEntities.Add(trigger);
+
+			AddPlatTriggerConnections(entity, trigger);
+		}
+
+		private void AddPlatTriggerConnections(Entity plat, Entity trigger)
+		{
+			var connection = new Entity.EntityConnection()
+			{
+				name = "onStartTouch",
+				target = plat.Name,
+				action = "close",
+				param = null,
+				delay = 0,
+				fireOnce = -1
+			};
+			trigger.connections.Add(connection);
+
+			var connection2 = new Entity.EntityConnection()
+			{
+				name = "onFullyClosed",
+				target = plat.Name,
+				action = "open",
+				param = null,
+				delay = 3, // placeholder value TODO: replicate actual func_plat behaviour
+				fireOnce = -1
+			};
+			plat.connections.Add(connection2);
+		}
+
+		private float GetBrushThickness(Entity entity)
+		{
+			var model = q3Models[entity.ModelNumber];
+
+			return model.Maximums.Z - model.Minimums.Z;
 		}
 
 		private void ConvertFuncDoor(Entity door)
