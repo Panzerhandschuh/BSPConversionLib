@@ -544,7 +544,7 @@ namespace BSPConvert.Lib
 					trigger.ClassName = "trigger_teleport";
 					trigger["target"] = MOMENTUM_START_ENTITY;
 					trigger["spawnflags"] = "1";
-					trigger["mode"] = "1";
+					trigger["velocitymode"] = "1";
 				}
 			}
 		}
@@ -843,7 +843,7 @@ namespace BSPConvert.Lib
 		{
 			trigger.ClassName = "trigger_teleport";
 			trigger["target"] = MOMENTUM_START_ENTITY;
-			trigger["mode"] = "1";
+			trigger["velocitymode"] = "1";
 		}
 
 		private void ConvertTimerTrigger(Entity trigger, string className, int zoneNumber)
@@ -1113,10 +1113,13 @@ namespace BSPConvert.Lib
 			}
 
 			if (targetTele["spawnflags"] == "1")
-				trigger["mode"] = "3";
+			{
+				trigger["velocitymode"] = "3";
+				trigger["setspeed"] = "0";
+			}
 			else
 			{
-				trigger["mode"] = "5";
+				trigger["velocitymode"] = "3";
 				trigger["setspeed"] = "400";
 			}
 		}
@@ -1151,13 +1154,16 @@ namespace BSPConvert.Lib
 			var spawnflags = (Q3TriggerTeleportFlags)trigger.Spawnflags;
 
 			if (spawnflags.HasFlag(Q3TriggerTeleportFlags.KeepSpeed))
-				trigger["mode"] = "3";
+			{
+				trigger["velocitymode"] = "3";
+				trigger["setspeed"] = "0";
+			}
 			else
 			{
 				if (spawnflags.HasFlag(Q3TriggerTeleportFlags.Spectator))
 					return;
 
-				trigger["mode"] = "5";
+				trigger["velocitymode"] = "3";
 				trigger["setspeed"] = "400";
 			}
 			trigger["spawnflags"] = "1";
