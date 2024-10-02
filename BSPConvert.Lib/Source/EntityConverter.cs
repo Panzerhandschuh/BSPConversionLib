@@ -467,7 +467,7 @@ namespace BSPConvert.Lib
 			{
 				if (damage >= minDamageToConvertTrigger)
 				{
-					trigger.ClassName = "trigger_momentum_teleport";
+					trigger.ClassName = "trigger_teleport";
 					trigger["target"] = MOMENTUM_START_ENTITY;
 					trigger["spawnflags"] = "1";
 					trigger["velocitymode"] = "1";
@@ -767,7 +767,7 @@ namespace BSPConvert.Lib
 
 		private void ConvertKillTrigger(Entity trigger)
 		{
-			trigger.ClassName = "trigger_momentum_teleport";
+			trigger.ClassName = "trigger_teleport";
 			trigger["target"] = MOMENTUM_START_ENTITY;
 			trigger["velocitymode"] = "1";
 		}
@@ -1031,7 +1031,7 @@ namespace BSPConvert.Lib
 			var target = GetTargetEntities(targetTele).FirstOrDefault();
 			if (target != null)
 			{
-				trigger.ClassName = "trigger_momentum_teleport";
+				trigger.ClassName = "trigger_teleport";
 				trigger["target"] = target.Name;
 
 				if (target.ClassName != "info_teleport_destination")
