@@ -86,6 +86,8 @@ namespace BSPConvert.Lib
 		private Lump<Model> q3Models;
 
 		private const string MOMENTUM_START_ENTITY = "_momentum_player_start_";
+		private const string MOMENTUM_MATH_COUNTER = "_momentum_math_counter_";
+		private const string MOMENTUM_LOGIC_CASE = "_momentum_logic_case_";
 
 		public EntityConverter(Lump<Model> q3Models, Entities q3Entities, Entities sourceEntities, Dictionary<string, Shader> shaderDict, int minDamageToConvertTrigger, bool ignoreZones)
 		{
@@ -136,6 +138,9 @@ namespace BSPConvert.Lib
 						break;
 					case "trigger_teleport":
 						ConvertTriggerTeleport(entity);
+						break;
+					case "misc_teleporter_dest":
+						ConvertTeleportDestination(entity);
 						break;
 					case "func_door":
 						ConvertFuncDoor(entity);
@@ -663,25 +668,25 @@ namespace BSPConvert.Lib
 
 		private void ConvertTargetScore(Entity entity, Entity targetScore, string output, float delay)
 		{
-			if (sourceEntities.FirstOrDefault(x => x.ClassName == "math_counter") == null) // Check if math_counter exists
+			if (!sourceEntities.Any(x => x.ClassName == "math_counter")) // Check if math_counter exists
 				CreateMathCounter();
 
 			if (!float.TryParse(targetScore["count"], out var count))
 				count = 1;
 
-			ModifyMathCounter(entity, output, "Add", $"{count}", delay);
+			ModifyMathCounter(entity, output, "Add", count.ToString(), delay);
 		}
 
 		private Entity CreateLogicCase()
 		{
 			var logicCase = new Entity();
 			logicCase.ClassName = "logic_case";
-			logicCase.Name = "logiccase";
+			logicCase.Name = MOMENTUM_LOGIC_CASE;
 
 			for (var i = 1; i <= 16; i++) // Logic_case supports 16 different outputs
 			{
 				var caseNum = $"case{i:D2}";
-				logicCase[$"{caseNum}"] = $"{i}";
+				logicCase[caseNum] = i.ToString();
 			}
 
 			var connection = new Entity.EntityConnection()
@@ -704,7 +709,7 @@ namespace BSPConvert.Lib
 		{
 			var counter = new Entity();
 			counter.ClassName = "math_counter";
-			counter.Name = "mathcounter";
+			counter.Name = MOMENTUM_MATH_COUNTER;
 			counter["startvalue"] = "0";
 			counter["min"] = "0";
 			counter["max"] = "16";
@@ -712,7 +717,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = "OutValue",
-				target = "logiccase",
+				target = MOMENTUM_LOGIC_CASE,
 				action = "InValue",
 				param = null,
 				delay = 0,
@@ -750,7 +755,7 @@ namespace BSPConvert.Lib
 			if (spawnflags.HasFlag(TargetFragsFilterFlags.Reset)) // Reset frags to 0
 				ModifyMathCounter(targetFragsFilter, "OnTrigger", "SetValue", "0", delay);
 			else if (spawnflags.HasFlag(TargetFragsFilterFlags.Remover)) // Remove frags when used
-				ModifyMathCounter(targetFragsFilter, "OnTrigger", "Subtract", $"{frags}", delay);
+				ModifyMathCounter(targetFragsFilter, "OnTrigger", "Subtract", frags.ToString(), delay);
 
 			if (spawnflags.HasFlag(TargetFragsFilterFlags.Match))
 				match = true;
@@ -762,7 +767,7 @@ namespace BSPConvert.Lib
 
 		private void AddLogicCaseOutput(string targetName, int frags, bool match)
 		{
-			var logicCase = sourceEntities.FirstOrDefault(x => x.ClassName == "logic_case") ?? CreateLogicCase();
+			var logicCase = sourceEntities.Find(x => x.ClassName == "logic_case") ?? CreateLogicCase();
 
 			var min = frags;
 			var max = match ? frags : 16; // Either force frags to match case number on true, else allow any cases over the frag count to trigger
@@ -770,8 +775,6 @@ namespace BSPConvert.Lib
 			for (var i = min; i <= max; i++)
 			{
 				var caseNum = $"case{i:D2}";
-
-				logicCase[$"{caseNum}"] = $"{i}";
 
 				var connection = new Entity.EntityConnection()
 				{
@@ -791,7 +794,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = output,
-				target = "mathcounter",
+				target = MOMENTUM_MATH_COUNTER,
 				action = input,
 				param = value,
 				delay = delay,
