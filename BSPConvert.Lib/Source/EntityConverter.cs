@@ -67,6 +67,14 @@ namespace BSPConvert.Lib
 			IsNotLooped = 32
 		}
 
+		[Flags]
+		private enum TargetFragsFilterFlags
+		{
+			Remover = 1,
+			Reset = 8,
+			Match = 16
+		}
+
 		private Entities q3Entities;
 		private Entities sourceEntities;
 		private Dictionary<string, Shader> shaderDict;
@@ -78,6 +86,8 @@ namespace BSPConvert.Lib
 		private Lump<Model> q3Models;
 
 		private const string MOMENTUM_START_ENTITY = "_momentum_player_start_";
+		private const string MOMENTUM_MATH_COUNTER = "_momentum_math_counter_";
+		private const string MOMENTUM_LOGIC_CASE = "_momentum_logic_case_";
 
 		public EntityConverter(Lump<Model> q3Models, Entities q3Entities, Entities sourceEntities, Dictionary<string, Shader> shaderDict, int minDamageToConvertTrigger, bool ignoreZones)
 		{
@@ -343,10 +353,20 @@ namespace BSPConvert.Lib
 						SetHasteOnOutput(button, "0", "OnPressed", delay);
 						SetQuadOnOutput(button, "0", "OnPressed", delay);
 						break;
+					case "target_teleporter":
+						ConvertTargetTeleporter(button, target, "OnPressed", delay);
+						break;
+					case "target_fragsFilter":
+						ConvertFragsFilter(button, target, "OnPressed", delay);
+						break;
+					case "target_score":
+						ConvertTargetScore(button, target, "OnPressed", delay);
+						break;
 				}
 
 				visited.Add(target);
-				ConvertButtonTargetsRecursive(button, target, delay, visited);
+				if (target.ClassName != "logic_relay") // logic_relay moves the next target's inputs to a separate entity instead, break from the loop
+					ConvertButtonTargetsRecursive(button, target, delay, visited);
 			}
 		}
 
@@ -578,16 +598,16 @@ namespace BSPConvert.Lib
 						delay += ConvertTargetDelay(target);
 						break;
 					case "target_give":
-						FireTargetGiveOnOutput(trigger, target, "OnStartTouch", delay);
+						FireTargetGiveOnOutput(trigger, target, "OnTrigger", delay);
 						break;
 					case "target_teleporter":
-						ConvertTeleportTrigger(trigger, target);
+						ConvertTargetTeleporter(trigger, target, "OnTrigger", delay);
 						break;
 					case "target_kill":
 						ConvertKillTrigger(trigger);
 						break;
 					case "target_init":
-						FireTargetInitOnOutput(trigger, target, "OnStartTouch", delay);
+						FireTargetInitOnOutput(trigger, target, "OnTrigger", delay);
 						break;
 					case "target_speaker":
 						ConvertTargetSpeakerTrigger(trigger, target, delay);
@@ -597,23 +617,190 @@ namespace BSPConvert.Lib
 						ConvertTargetPrintTrigger(trigger, target, delay);
 						break;
 					case "target_speed":
-						FireTargetSpeedOnOutput(trigger, target, "OnStartTouch", delay);
+						FireTargetSpeedOnOutput(trigger, target, "OnTrigger", delay);
 						break;
 					case "target_push":
 						ConvertTargetPushTrigger(trigger, target, delay);
 						break;
 					case "target_remove_powerups":
-						SetHasteOnOutput(trigger, "0", "OnStartTouch", delay);
-						SetQuadOnOutput(trigger, "0", "OnStartTouch", delay);
+						SetHasteOnOutput(trigger, "0", "OnTrigger", delay);
+						SetQuadOnOutput(trigger, "0", "OnTrigger", delay);
 						break;
 					case "func_door":
-						OpenDoorOnOutput(trigger, target, "OnStartTouch", delay);
+						OpenDoorOnOutput(trigger, target, "OnTrigger", delay);
+						break;
+					case "target_fragsFilter":
+						ConvertFragsFilter(trigger, target, "OnTrigger", delay);
+						break;
+					case "target_score":
+						ConvertTargetScore(trigger, target, "OnTrigger", delay);
 						break;
 				}
 
 				visited.Add(target);
-				ConvertTriggerTargetsRecursive(trigger, target, delay, visited);
+				if (target.ClassName != "logic_relay") // logic_relay moves the next target's inputs to a separate entity instead, break from the loop
+					ConvertTriggerTargetsRecursive(trigger, target, delay, visited);
 			}
+		}
+
+		private void ConvertTargetTeleporter(Entity entity, Entity targetTeleporter, string output, float delay)
+		{
+			var targets = GetTargetEntities(targetTeleporter);
+			foreach (var target in targets)
+			{
+				target.ClassName = "point_teleport";
+				target["target"] = "!player";
+
+				// TODO: Implement teleport velocity modes, fix teleport origin
+
+				var connection = new Entity.EntityConnection()
+				{
+					name = output,
+					target = target.Name,
+					action = "Teleport",
+					param = null,
+					delay = delay,
+					fireOnce = -1
+				};
+				entity.connections.Add(connection);
+			}
+		}
+
+		private void ConvertTargetScore(Entity entity, Entity targetScore, string output, float delay)
+		{
+			if (!sourceEntities.Any(x => x.ClassName == "math_counter")) // Check if math_counter exists
+				CreateMathCounter();
+
+			if (!float.TryParse(targetScore["count"], out var count))
+				count = 1;
+
+			ModifyMathCounter(entity, output, "Add", count.ToString(), delay);
+		}
+
+		private Entity CreateLogicCase()
+		{
+			var logicCase = new Entity();
+			logicCase.ClassName = "logic_case";
+			logicCase.Name = MOMENTUM_LOGIC_CASE;
+
+			for (var i = 1; i <= 16; i++) // Logic_case supports 16 different outputs
+			{
+				var caseNum = $"case{i:D2}";
+				logicCase[caseNum] = i.ToString();
+			}
+
+			var connection = new Entity.EntityConnection()
+			{
+				name = "OnUsed",
+				target = "*relay*", // Disable all logic_relays
+				action = "Disable",
+				param = null,
+				delay = 0,
+				fireOnce = -1
+			};
+			logicCase.connections.Add(connection);
+
+			sourceEntities.Add(logicCase);
+
+			return logicCase;
+		}
+
+		private void CreateMathCounter()
+		{
+			var counter = new Entity();
+			counter.ClassName = "math_counter";
+			counter.Name = MOMENTUM_MATH_COUNTER;
+			counter["startvalue"] = "0";
+			counter["min"] = "0";
+			counter["max"] = "16";
+
+			var connection = new Entity.EntityConnection()
+			{
+				name = "OutValue",
+				target = MOMENTUM_LOGIC_CASE,
+				action = "InValue",
+				param = null,
+				delay = 0,
+				fireOnce = -1
+			};
+			counter.connections.Add(connection);
+
+			sourceEntities.Add(counter);
+		}
+
+		private void ConvertFragsFilter(Entity entity, Entity targetFragsFilter, string output, float delay)
+		{
+			if (!int.TryParse(targetFragsFilter["frags"], out var frags))
+				frags = 1; // Default number of frags is 1 if no value is specified
+
+			targetFragsFilter.ClassName = "logic_relay";
+			targetFragsFilter["startdisabled"] = (frags > 0) ? "1" : "0"; // Players start with 0 frags, disable entities that require > 0
+
+			targetFragsFilter.Name += $"relay{frags:D2}"; // Name needs a unique relay number for the logic_case to target
+
+			var connection = new Entity.EntityConnection()
+			{
+				name = output,
+				target = targetFragsFilter.Name,
+				action = "Trigger",
+				param = null,
+				delay = delay,
+				fireOnce = -1
+			};
+			entity.connections.Add(connection);
+
+			var match = false;
+			var spawnflags = (TargetFragsFilterFlags)targetFragsFilter.Spawnflags;
+
+			if (spawnflags.HasFlag(TargetFragsFilterFlags.Reset)) // Reset frags to 0
+				ModifyMathCounter(targetFragsFilter, "OnTrigger", "SetValue", "0", delay);
+			else if (spawnflags.HasFlag(TargetFragsFilterFlags.Remover)) // Remove frags when used
+				ModifyMathCounter(targetFragsFilter, "OnTrigger", "Subtract", frags.ToString(), delay);
+
+			if (spawnflags.HasFlag(TargetFragsFilterFlags.Match))
+				match = true;
+
+			AddLogicCaseOutput(targetFragsFilter.Name, frags, match);
+
+			ConvertTriggerTargetsRecursive(targetFragsFilter, targetFragsFilter, 0, new HashSet<Entity>());
+		}
+
+		private void AddLogicCaseOutput(string targetName, int frags, bool match)
+		{
+			var logicCase = sourceEntities.Find(x => x.ClassName == "logic_case") ?? CreateLogicCase();
+
+			var min = frags;
+			var max = match ? frags : 16; // Either force frags to match case number on true, else allow any cases over the frag count to trigger
+
+			for (var i = min; i <= max; i++)
+			{
+				var caseNum = $"case{i:D2}";
+
+				var connection = new Entity.EntityConnection()
+				{
+					name = $"On{caseNum}",
+					target = targetName,
+					action = "Enable",
+					param = null,
+					delay = 0.008f,
+					fireOnce = -1
+				};
+				logicCase.connections.Add(connection);
+			}
+		}
+
+		private void ModifyMathCounter(Entity entity, string output, string input, string value, float delay)
+		{
+			var connection = new Entity.EntityConnection()
+			{
+				name = output,
+				target = MOMENTUM_MATH_COUNTER,
+				action = input,
+				param = value,
+				delay = delay,
+				fireOnce = -1
+			};
+			entity.connections.Add(connection);
 		}
 
 		private float ConvertTargetDelay(Entity targetDelay)
@@ -1171,7 +1358,7 @@ namespace BSPConvert.Lib
 			var targets = GetTargetEntities(trigger);
 			foreach (var target in targets)
 			{
-				if (target.ClassName != "info_teleport_destination")
+				if (target.ClassName != "info_teleport_destination" && target.ClassName != "point_teleport")
 					ConvertTeleportDestination(target);
 			}
 		}
