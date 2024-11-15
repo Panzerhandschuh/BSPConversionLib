@@ -403,7 +403,7 @@ namespace BSPConvert.Lib
 		private static void SetButtonFlags(Entity button)
 		{
 			if (!float.TryParse(button["speed"], out var speed))
-				return;
+				speed = 40;
 
 			var spawnflags = 0;
 
