@@ -356,6 +356,10 @@ namespace BSPConvert.Lib
 					case "target_teleporter":
 						ConvertTargetTeleporter(button, target, "OnPressed", delay);
 						break;
+					case "target_relay":
+					case "logic_relay":
+						ConvertTargetRelay(button, target, "OnPressed", delay);
+						break;
 					case "target_fragsFilter":
 						ConvertFragsFilter(button, target, "OnPressed", delay);
 						break;
@@ -629,6 +633,10 @@ namespace BSPConvert.Lib
 					case "func_door":
 						OpenDoorOnOutput(trigger, target, "OnTrigger", delay);
 						break;
+					case "target_relay":
+					case "logic_relay":
+						ConvertTargetRelay(trigger, target, "OnTrigger", delay);
+						break;
 					case "target_fragsFilter":
 						ConvertFragsFilter(trigger, target, "OnTrigger", delay);
 						break;
@@ -692,7 +700,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = "OnUsed",
-				target = "*relay*", // Disable all logic_relays
+				target = "*_mom_relay*", // Disable all logic_relays
 				action = "Disable",
 				param = null,
 				delay = 0,
@@ -733,21 +741,9 @@ namespace BSPConvert.Lib
 			if (!int.TryParse(targetFragsFilter["frags"], out var frags))
 				frags = 1; // Default number of frags is 1 if no value is specified
 
-			targetFragsFilter.ClassName = "logic_relay";
 			targetFragsFilter["startdisabled"] = (frags > 0) ? "1" : "0"; // Players start with 0 frags, disable entities that require > 0
 
-			targetFragsFilter.Name += $"relay{frags:D2}"; // Name needs a unique relay number for the logic_case to target
-
-			var connection = new Entity.EntityConnection()
-			{
-				name = output,
-				target = targetFragsFilter.Name,
-				action = "Trigger",
-				param = null,
-				delay = delay,
-				fireOnce = -1
-			};
-			entity.connections.Add(connection);
+			targetFragsFilter.Name += $"_mom_relay{frags:D2}"; // Name needs a unique relay number for the logic_case to target
 
 			var match = false;
 			var spawnflags = (TargetFragsFilterFlags)targetFragsFilter.Spawnflags;
@@ -760,9 +756,31 @@ namespace BSPConvert.Lib
 			if (spawnflags.HasFlag(TargetFragsFilterFlags.Match))
 				match = true;
 
-			AddLogicCaseOutput(targetFragsFilter.Name, frags, match);
+			ConvertTargetRelay(entity, targetFragsFilter, output, delay);
 
-			ConvertTriggerTargetsRecursive(targetFragsFilter, targetFragsFilter, 0, new HashSet<Entity>());
+			AddLogicCaseOutput(targetFragsFilter.Name, frags, match);
+		}
+
+		private void ConvertTargetRelay(Entity entity, Entity targetRelay, string output, float delay)
+		{
+			var connection = new Entity.EntityConnection()
+			{
+				name = output,
+				target = targetRelay.Name,
+				action = "Trigger",
+				param = null,
+				delay = delay,
+				fireOnce = -1
+			};
+			entity.connections.Add(connection);
+
+			if (targetRelay.ClassName != "logic_relay")
+			{
+				targetRelay.ClassName = "logic_relay";
+				targetRelay.Spawnflags = 2;
+
+				ConvertTriggerTargetsRecursive(targetRelay, targetRelay, 0, new HashSet<Entity>());
+			}
 		}
 
 		private void AddLogicCaseOutput(string targetName, int frags, bool match)
