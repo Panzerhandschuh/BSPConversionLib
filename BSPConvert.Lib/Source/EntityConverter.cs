@@ -686,7 +686,7 @@ namespace BSPConvert.Lib
 			for (var i = 1; i <= 16; i++) // Logic_case supports 16 different outputs
 			{
 				var caseNum = $"case{i:D2}";
-				logicCase[caseNum] = i.ToString();
+				logicCase[caseNum] = (i-1).ToString(); // case01 = 0, case02 = 1 etc
 			}
 
 			var connection = new Entity.EntityConnection()
@@ -774,7 +774,7 @@ namespace BSPConvert.Lib
 
 			for (var i = min; i <= max; i++)
 			{
-				var caseNum = $"case{i:D2}";
+				var caseNum = $"case{i+1:D2}";
 
 				var connection = new Entity.EntityConnection()
 				{
