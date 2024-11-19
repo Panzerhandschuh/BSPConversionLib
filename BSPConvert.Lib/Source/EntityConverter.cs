@@ -356,6 +356,9 @@ namespace BSPConvert.Lib
 					case "target_teleporter":
 						ConvertTargetTeleporter(button, target, "OnPressed", delay);
 						break;
+					case "target_push":
+						ConvertTargetPush(button, target, "OnPressed", delay);
+						break;
 					case "target_relay":
 					case "logic_relay":
 						ConvertTargetRelay(button, target, "OnPressed", delay);
@@ -624,7 +627,7 @@ namespace BSPConvert.Lib
 						FireTargetSpeedOnOutput(trigger, target, "OnTrigger", delay);
 						break;
 					case "target_push":
-						ConvertTargetPushTrigger(trigger, target, delay);
+						ConvertTargetPush(trigger, target, "OnTrigger", delay);
 						break;
 					case "target_remove_powerups":
 						SetHasteOnOutput(trigger, "0", "OnTrigger", delay);
@@ -831,45 +834,34 @@ namespace BSPConvert.Lib
 				return 1;
 		}
 
-		private void ConvertTargetPushTrigger(Entity trigger, Entity targetPush, float delay)
+		private void ConvertTargetPush(Entity trigger, Entity targetPush, string output, float delay)
 		{
+			var launchVector = "0 0 0";
 			var targetPosition = GetTargetEntities(targetPush).FirstOrDefault();
+
 			if (targetPosition != null)
 			{
-				targetPosition.Origin = CalculateTargetOrigin(trigger, targetPush, targetPosition);
 				targetPosition.ClassName = "info_target";
-
-				ConvertTriggerJumppad(trigger, targetPosition.Name);
+				launchVector = GetLaunchVectorWithTarget(targetPush, targetPosition);
 			}
 			else
-				SetLocalVelocityTrigger(trigger, targetPush, delay);
+				launchVector = GetLaunchVector(targetPush);
+
+			SetLocalVelocityOnOutput(trigger, launchVector, output, delay);
 		}
 
-		private static void SetLocalVelocityTrigger(Entity trigger, Entity targetPush, float delay)
+		private static void SetLocalVelocityOnOutput(Entity trigger, string launchVector, string output, float delay)
 		{
 			var connection = new Entity.EntityConnection()
 			{
-				name = "OnStartTouch",
-				target = "player",
+				name = output,
+				target = "!player",
 				action = "SetLocalVelocity",
-				param = GetLaunchVector(targetPush),
+				param = launchVector,
 				delay = delay,
 				fireOnce = -1
 			};
 			trigger.connections.Add(connection);
-		}
-
-		private Vector3 CalculateTargetOrigin(Entity trigger, Entity targetPush, Entity targetPosition)
-		{
-			var modelIndexStr = trigger["model"].Substring(1); // Removes * from model index
-			if (!int.TryParse(modelIndexStr, out var modelIndex))
-				return targetPosition.Origin;
-
-			var model = q3Models[modelIndex];
-			var center = (model.Minimums + model.Maximums) / 2f;
-
-			var originDiff = targetPosition.Origin - targetPush.Origin;
-			return center + originDiff;
 		}
 
 		private static string GetLaunchVector(Entity targetPush)
@@ -895,6 +887,22 @@ namespace BSPConvert.Lib
 
 			var launchVector = launchDir * speed;
 			return $"{launchVector.X} {launchVector.Y} {launchVector.Z}";
+		}
+
+		private string GetLaunchVectorWithTarget(Entity targetPush, Entity targetPosition)
+		{
+			var gravity = 800f;
+			var height = targetPosition.Origin.Z - targetPush.Origin.Z;
+			var time = Math.Sqrt(height / (.5 * gravity)); // Calculates how many seconds it takes to reach the apex of the launch
+
+			var xDist = targetPosition.Origin.X - targetPush.Origin.X;
+			var yDist = targetPosition.Origin.Y - targetPush.Origin.Y;
+
+			var xSpeed = xDist / time;
+			var ySpeed = yDist / time;
+			var zSpeed = time * gravity;
+
+			return $"{xSpeed} {ySpeed} {zSpeed}";
 		}
 
 		private static Vector3 ConvertAnglesToVector(float pitchDegrees, float yawDegrees)
