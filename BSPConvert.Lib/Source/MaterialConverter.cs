@@ -8,6 +8,7 @@ namespace BSPConvert.Lib
 {
 	public class MaterialConverter
 	{
+		private int smoothShadows;
 		private string pk3Dir;
 		private Dictionary<string, Shader> shaderDict;
 		private Dictionary<string, string> pk3ImageDict;
@@ -23,8 +24,9 @@ namespace BSPConvert.Lib
 			"up"
 		};
 
-		public MaterialConverter(string pk3Dir, Dictionary<string, Shader> shaderDict)
+		public MaterialConverter(string pk3Dir, Dictionary<string, Shader> shaderDict, int smoothShadows)
 		{
+			this.smoothShadows = smoothShadows;
 			this.pk3Dir = pk3Dir;
 			this.shaderDict = shaderDict;
 			pk3ImageDict = GetImageLookupDictionary(pk3Dir);
@@ -201,7 +203,7 @@ namespace BSPConvert.Lib
 			sb.AppendLine("UnlitGeneric");
 			sb.AppendLine("{");
 
-			AppendShaderParameters(sb, shader);
+			AppendShaderParameters(sb, shader, false);
 
 			sb.AppendLine("}");
 
@@ -214,14 +216,14 @@ namespace BSPConvert.Lib
 			sb.AppendLine("LightmappedGeneric");
 			sb.AppendLine("{");
 
-			AppendShaderParameters(sb, shader);
+			AppendShaderParameters(sb, shader, true);
 
 			sb.AppendLine("}");
 
 			return sb.ToString();
 		}
 
-		private void AppendShaderParameters(StringBuilder sb, Shader shader)
+		private void AppendShaderParameters(StringBuilder sb, Shader shader, bool lightmapped)
 		{
 			var stages = shader.GetImageStages();
 			var textureStage = stages.FirstOrDefault(x => x.bundles[0].tcGen != TexCoordGen.TCGEN_ENVIRONMENT_MAPPED && x.bundles[0].tcGen != TexCoordGen.TCGEN_LIGHTMAP);
@@ -233,8 +235,19 @@ namespace BSPConvert.Lib
 				if (textureStage.rgbGen.HasFlag(ColorGen.CGEN_CONST))
 				{
 					var color = textureStage.constantColor;
-					var colorStr = $"{color[0]} {color[1]} {color[2]}";
-					sb.AppendLine("\t$color \"{" + colorStr + "}\"");
+
+					var r = ColorUtil.GammaToLinear(color[0]); // gamma correct rgb values
+					var g = ColorUtil.GammaToLinear(color[1]);
+					var b = ColorUtil.GammaToLinear(color[2]);
+
+					var colorStr = lightmapped ? $"{Math.Round(r / smoothShadows, 2)} {Math.Round(g / smoothShadows, 2)} {Math.Round(b / smoothShadows, 2)}" : $"{r} {g} {b}";
+
+					sb.AppendLine("\t$color2 \"{" + colorStr + "}\"");
+				}
+				else if (lightmapped && smoothShadows > 1)
+				{
+					var shadowCorrection = Math.Round(255f / smoothShadows);
+					sb.AppendLine($$"""    $color2 "{ {{shadowCorrection}} {{shadowCorrection}} {{shadowCorrection}} }" """); 
 				}
 
 				if (textureStage.alphaGen.HasFlag(AlphaGen.AGEN_CONST))
@@ -459,12 +472,27 @@ namespace BSPConvert.Lib
 
 		private string GenerateDefaultLitVMT(string texture)
 		{
-			return $$"""
+			if (smoothShadows > 1) // gamma correct textures to match modified lightmap brightness
+			{
+				var shadowCorrection = Math.Round(255f / smoothShadows);
+
+				return $$"""
+				LightmappedGeneric
+				{
+					$basetexture "{{texture}}"
+					$color2 "{ {{shadowCorrection}} {{shadowCorrection}} {{shadowCorrection}} }" 
+				}
+				""";
+			}
+			else
+			{
+				return $$"""
 				LightmappedGeneric
 				{
 					$basetexture "{{texture}}"
 				}
 				""";
+			}
 		}
 	}
 }
