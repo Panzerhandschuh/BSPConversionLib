@@ -971,7 +971,7 @@ namespace BSPConvert.Lib
 			}
 			if (!spawnflags.HasFlag(TargetInitFlags.KeepWeapons))
 			{
-				RemoveWeaponOnOutput(entity, "weapon_knife", output, delay);
+				RemoveWeaponOnOutput(entity, "weapon_momentum_df_knife", output, delay);
 				RemoveWeaponOnOutput(entity, "weapon_momentum_df_grenadelauncher", output, delay);
 				RemoveWeaponOnOutput(entity, "weapon_momentum_df_rocketlauncher", output, delay);
 				RemoveWeaponOnOutput(entity, "weapon_momentum_df_plasmagun", output, delay);
@@ -1373,7 +1373,7 @@ namespace BSPConvert.Lib
 				case "weapon_machinegun":
 					return "weapon_momentum_df_machinegun";
 				case "weapon_gauntlet":
-					return "weapon_knife";
+					return "weapon_momentum_df_knife";
 				case "weapon_grenadelauncher":
 					return "weapon_momentum_df_grenadelauncher";
 				case "weapon_rocketlauncher":
