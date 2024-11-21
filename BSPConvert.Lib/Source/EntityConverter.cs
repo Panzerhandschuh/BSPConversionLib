@@ -313,68 +313,12 @@ namespace BSPConvert.Lib
 			SetButtonFlags(button);
 
 			var delay = 0f;
-			ConvertButtonTargetsRecursive(button, button, delay, new HashSet<Entity>());
+			ConvertEntityTargetsRecursive(button, button, "OnPressed", delay, new HashSet<Entity>());
 
 			if (button["wait"] == "-1") // A value of -1 in quake is instantly reset position, in source it is don't reset position.
 				button["wait"] = "0.001"; // exactly 0 also behaves as don't reset in source, so the delay is as short as possible without being 0.
 
 			button["customsound"] = "movers/switches/butn2.wav";
-		}
-
-		private void ConvertButtonTargetsRecursive(Entity button, Entity entity, float delay, HashSet<Entity> visited)
-		{
-			var targets = GetTargetEntities(entity);
-			foreach (var target in targets)
-			{
-				if (visited.Contains(target) || entity == target)
-					continue;
-
-				switch (target.ClassName)
-				{
-					case "target_delay":
-						{
-							delay += ConvertTargetDelay(target);
-							removeEntities.Add(target);
-							break;
-						}
-					case "func_door":
-						OpenDoorOnOutput(button, target, "OnPressed", delay);
-						break;
-					case "target_speed":
-						FireTargetSpeedOnOutput(button, target, "OnPressed", delay);
-						break;
-					case "target_give":
-						FireTargetGiveOnOutput(button, target, "OnPressed", delay);
-						break;
-					case "target_init":
-						FireTargetInitOnOutput(button, target, "OnPressed", delay);
-						break;
-					case "target_remove_powerups":
-						SetHasteOnOutput(button, "0", "OnPressed", delay);
-						SetQuadOnOutput(button, "0", "OnPressed", delay);
-						break;
-					case "target_teleporter":
-						ConvertTargetTeleporter(button, target, "OnPressed", delay);
-						break;
-					case "target_push":
-						ConvertTargetPush(button, target, "OnPressed", delay);
-						break;
-					case "target_relay":
-					case "logic_relay":
-						ConvertTargetRelay(button, target, "OnPressed", delay);
-						break;
-					case "target_fragsFilter":
-						ConvertFragsFilter(button, target, "OnPressed", delay);
-						break;
-					case "target_score":
-						ConvertTargetScore(button, target, "OnPressed", delay);
-						break;
-				}
-
-				visited.Add(target);
-				if (target.ClassName != "logic_relay") // logic_relay moves the next target's inputs to a separate entity instead, break from the loop
-					ConvertButtonTargetsRecursive(button, target, delay, visited);
-			}
 		}
 
 		private static void OpenDoorOnOutput(Entity entity, Entity door, string output, float delay)
@@ -579,82 +523,84 @@ namespace BSPConvert.Lib
 		private void ConvertTriggerMultiple(Entity trigger)
 		{
 			var delay = 0f;
-			ConvertTriggerTargetsRecursive(trigger, trigger, delay, new HashSet<Entity>());
+			ConvertEntityTargetsRecursive(trigger, trigger, "OnTrigger", delay, new HashSet<Entity>());
 
 			trigger["spawnflags"] = "1";
 		}
 
-		private void ConvertTriggerTargetsRecursive(Entity trigger, Entity entity, float delay, HashSet<Entity> visited)
+		private void ConvertEntityTargetsRecursive(Entity entity, Entity targetEntity, string output, float delay, HashSet<Entity> visited)
 		{
-			var targets = GetTargetEntities(entity);
+			var targets = GetTargetEntities(targetEntity);
 			foreach (var target in targets)
 			{
-				if (visited.Contains(target) || entity == target)
+				if (visited.Contains(target) || targetEntity == target)
 					continue;
 
 				switch (target.ClassName)
 				{
 					case "target_stopTimer":
-						ConvertTimerTrigger(trigger, "trigger_momentum_timer_stop", 0);
+						ConvertTimerTrigger(entity, "trigger_momentum_timer_stop", 0);
 						break;
 					case "target_checkpoint":
-						ConvertTimerTrigger(trigger, "trigger_momentum_timer_checkpoint", currentCheckpointIndex);
+						ConvertTimerTrigger(entity, "trigger_momentum_timer_checkpoint", currentCheckpointIndex);
 						currentCheckpointIndex++;
 						break;
 					case "target_delay":
 						delay += ConvertTargetDelay(target);
 						break;
 					case "target_give":
-						FireTargetGiveOnOutput(trigger, target, "OnTrigger", delay);
+						FireTargetGiveOnOutput(entity, target, output, delay);
 						break;
 					case "target_teleporter":
-						ConvertTargetTeleporter(trigger, target, "OnTrigger", delay);
+						FireTargetTeleporterOnOutput(entity, target, output, delay);
 						break;
 					case "target_kill":
-						ConvertKillTrigger(trigger);
+						ConvertKillTrigger(entity);
 						break;
 					case "target_init":
-						FireTargetInitOnOutput(trigger, target, "OnTrigger", delay);
+						FireTargetInitOnOutput(entity, target, output, delay);
 						break;
 					case "target_speaker":
-						ConvertTargetSpeakerTrigger(trigger, target, delay);
+					case "ambient_generic":
+						FireTargetSpeakerOnOutput(entity, target, output, delay);
 						break;
 					case "target_print":
 					case "target_smallprint":
-						ConvertTargetPrintTrigger(trigger, target, delay);
+					case "game_text":
+						FireTargetPrintOnOutput(entity, target, output, delay);
 						break;
 					case "target_speed":
-						FireTargetSpeedOnOutput(trigger, target, "OnTrigger", delay);
+						FireTargetSpeedOnOutput(entity, target, output, delay);
 						break;
 					case "target_push":
-						ConvertTargetPush(trigger, target, "OnTrigger", delay);
+						FireTargetPushOnOutput(entity, target, output, delay);
 						break;
 					case "target_remove_powerups":
-						SetHasteOnOutput(trigger, "0", "OnTrigger", delay);
-						SetQuadOnOutput(trigger, "0", "OnTrigger", delay);
+						SetHasteOnOutput(entity, "0", output, delay);
+						SetQuadOnOutput(entity, "0", output, delay);
 						break;
 					case "func_door":
-						OpenDoorOnOutput(trigger, target, "OnTrigger", delay);
+						OpenDoorOnOutput(entity, target, output, delay);
 						break;
 					case "target_relay":
 					case "logic_relay":
-						ConvertTargetRelay(trigger, target, "OnTrigger", delay);
+						FireTargetRelayOnOutput(entity, target, output, delay);
 						break;
 					case "target_fragsFilter":
-						ConvertFragsFilter(trigger, target, "OnTrigger", delay);
+						ConvertFragsFilter(entity, target, output, delay);
 						break;
 					case "target_score":
-						ConvertTargetScore(trigger, target, "OnTrigger", delay);
+						ConvertTargetScore(entity, target, output, delay);
 						break;
 				}
 
 				visited.Add(target);
 				if (target.ClassName != "logic_relay") // logic_relay moves the next target's inputs to a separate entity instead, break from the loop
-					ConvertTriggerTargetsRecursive(trigger, target, delay, visited);
+					ConvertEntityTargetsRecursive(entity, target, output, delay, visited);
 			}
 		}
 
-		private void ConvertTargetTeleporter(Entity entity, Entity targetTeleporter, string output, float delay)
+		private void FireTargetTeleporterOnOutput(Entity entity, Entity targetTeleporter, string output, float delay)
 		{
 			var targets = GetTargetEntities(targetTeleporter);
 			foreach (var target in targets)
@@ -759,12 +705,12 @@ namespace BSPConvert.Lib
 			if (spawnflags.HasFlag(TargetFragsFilterFlags.Match))
 				match = true;
 
-			ConvertTargetRelay(entity, targetFragsFilter, output, delay);
+			FireTargetRelayOnOutput(entity, targetFragsFilter, output, delay);
 
 			AddLogicCaseOutput(targetFragsFilter.Name, frags, match);
 		}
 
-		private void ConvertTargetRelay(Entity entity, Entity targetRelay, string output, float delay)
+		private void FireTargetRelayOnOutput(Entity entity, Entity targetRelay, string output, float delay)
 		{
 			var connection = new Entity.EntityConnection()
 			{
@@ -782,7 +728,7 @@ namespace BSPConvert.Lib
 				targetRelay.ClassName = "logic_relay";
 				targetRelay.Spawnflags = 2;
 
-				ConvertTriggerTargetsRecursive(targetRelay, targetRelay, 0, new HashSet<Entity>());
+				ConvertEntityTargetsRecursive(targetRelay, targetRelay, "OnTrigger", 0, new HashSet<Entity>());
 			}
 		}
 
@@ -834,7 +780,7 @@ namespace BSPConvert.Lib
 				return 1;
 		}
 
-		private void ConvertTargetPush(Entity trigger, Entity targetPush, string output, float delay)
+		private void FireTargetPushOnOutput(Entity entity, Entity targetPush, string output, float delay)
 		{
 			var launchVector = "0 0 0";
 			var targetPosition = GetTargetEntities(targetPush).FirstOrDefault();
@@ -847,10 +793,10 @@ namespace BSPConvert.Lib
 			else
 				launchVector = GetLaunchVector(targetPush);
 
-			SetLocalVelocityOnOutput(trigger, launchVector, output, delay);
+			SetLocalVelocityOnOutput(entity, launchVector, output, delay);
 		}
 
-		private static void SetLocalVelocityOnOutput(Entity trigger, string launchVector, string output, float delay)
+		private static void SetLocalVelocityOnOutput(Entity entity, string launchVector, string output, float delay)
 		{
 			var connection = new Entity.EntityConnection()
 			{
@@ -861,7 +807,7 @@ namespace BSPConvert.Lib
 				delay = delay,
 				fireOnce = -1
 			};
-			trigger.connections.Add(connection);
+			entity.connections.Add(connection);
 		}
 
 		private static string GetLaunchVector(Entity targetPush)
@@ -928,20 +874,21 @@ namespace BSPConvert.Lib
 				targetSpeed["speed"] = "100";
 		}
 
-		private void ConvertTargetPrintTrigger(Entity trigger, Entity targetPrint, float delay)
+		private void FireTargetPrintOnOutput(Entity entity, Entity targetPrint, string output, float delay)
 		{
 			var connection = new Entity.EntityConnection()
 			{
-				name = "OnStartTouch",
+				name = output,
 				target = targetPrint["targetname"],
 				action = "Display",
 				param = null,
 				delay = delay,
 				fireOnce = -1
 			};
-			trigger.connections.Add(connection);
+			entity.connections.Add(connection);
 			
-			ConvertTargetPrint(targetPrint);
+			if (targetPrint.ClassName != "game_text")
+				ConvertTargetPrint(targetPrint);
 		}
 
 		private void ConvertTargetPrint(Entity targetPrint)
@@ -959,20 +906,21 @@ namespace BSPConvert.Lib
 			targetPrint["y"] = "0.2";
 		}
 
-		private void ConvertTargetSpeakerTrigger(Entity trigger, Entity targetSpeaker, float delay)
+		private void FireTargetSpeakerOnOutput(Entity entity, Entity targetSpeaker, string output, float delay)
 		{
 			var connection = new Entity.EntityConnection()
 			{
-				name = "OnStartTouch",
+				name = output,
 				target = targetSpeaker["targetname"],
 				action = "PlaySound",
 				param = null,
 				delay = delay,
 				fireOnce = -1
 			};
-			trigger.connections.Add(connection);
+			entity.connections.Add(connection);
 			
-			ConvertTargetSpeaker(targetSpeaker);
+			if (targetSpeaker.ClassName != "ambient_generic")
+				ConvertTargetSpeaker(targetSpeaker);
 		}
 
 		private void ConvertTargetSpeaker(Entity targetSpeaker)
@@ -1054,6 +1002,9 @@ namespace BSPConvert.Lib
 
 		private void ConvertKillTrigger(Entity trigger)
 		{
+			if (!trigger.ClassName.StartsWith("trigger"))
+				return;
+
 			trigger.ClassName = "trigger_teleport";
 			trigger["target"] = MOMENTUM_START_ENTITY;
 			trigger["velocitymode"] = "1";
@@ -1061,7 +1012,7 @@ namespace BSPConvert.Lib
 
 		private void ConvertTimerTrigger(Entity trigger, string className, int zoneNumber)
 		{
-			if (ignoreZones)
+			if (ignoreZones || !trigger.ClassName.StartsWith("trigger"))
 				return;
 
 			var newTrigger = new Entity();
