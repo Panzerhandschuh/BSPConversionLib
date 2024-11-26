@@ -403,107 +403,15 @@ namespace BSPConvert.Lib
 			playerStart.Name = MOMENTUM_START_ENTITY;
 
 			var targets = GetTargetEntities(playerStart);
-			foreach (var target in targets)
+			if (targets.Any())
 			{
-				switch (target.ClassName)
-				{
-					case "target_give":
-						ConvertPlayerStartTargetGive(playerStart, target);
-						break;
-					case "target_init":
-						ConvertPlayerStartTargetInit(playerStart, target);
-						break;
-				}
+				var logicAuto = new Entity();
+				logicAuto.ClassName = "logic_auto";
+
+				ConvertEntityTargetsRecursive(logicAuto, playerStart, "OnMapSpawn", 0, new HashSet<Entity>());
+
+				sourceEntities.Add(logicAuto);
 			}
-		}
-
-		private void ConvertPlayerStartTargetGive(Entity playerStart, Entity targetGive)
-		{
-			var targets = GetTargetEntities(targetGive);
-			foreach (var target in targets)
-			{
-				if (target.ClassName.StartsWith("weapon_"))
-				{
-					var count = ConvertWeaponAmmoCount(target.ClassName, target["count"]);
-					var weaponName = GetMomentumWeaponName(target.ClassName);
-					var weapon = CreateTargetGiveWeapon(weaponName, playerStart.Origin, count);
-					sourceEntities.Add(weapon);
-				}
-				else if (target.ClassName.StartsWith("ammo_"))
-				{
-					var count = ConvertAmmoCount(target.ClassName, target["count"]);
-					var ammoName = GetMomentumAmmoName(target.ClassName);
-					var ammo = CreateTargetGiveAmmo(ammoName, playerStart.Origin, count);
-					sourceEntities.Add(ammo);
-				}
-				else if (target.ClassName.StartsWith("item_"))
-				{
-					var itemName = GetMomentumItemName(target.ClassName);
-					var item = CreateTargetGiveItem(itemName, playerStart.Origin, target["count"]);
-					sourceEntities.Add(item);
-				}
-
-				removeEntities.Add(target);
-			}
-		}
-
-		private void ConvertPlayerStartTargetInit(Entity playerStart, Entity targetInit)
-		{
-			var targets = GetTargetEntities(targetInit);
-			foreach (var target in targets)
-			{
-				switch (target.ClassName)
-				{
-					case "target_give":
-						ConvertPlayerStartTargetGive(playerStart, target);
-						break;
-				}
-			}
-		}
-
-		private Entity CreateTargetGiveWeapon(string weaponName, Vector3 origin, string count)
-		{
-			var weapon = new Entity();
-
-			weapon.ClassName = "momentum_weapon_spawner";
-			weapon.Origin = origin;
-			weapon["weaponname"] = weaponName;
-			weapon["pickupammo"] = count;
-			weapon["resettime"] = "-1"; // Only use once
-			weapon["rendermode"] = "10";
-
-			return weapon;
-		}
-
-		private Entity CreateTargetGiveAmmo(string ammoName, Vector3 origin, string count)
-		{
-			var ammo = new Entity();
-
-			ammo.ClassName = "momentum_pickup_ammo";
-			ammo.Origin = origin;
-			ammo["ammoname"] = ammoName;
-			ammo["pickupammo"] = count;
-			ammo["resettime"] = "-1"; // Only use once
-			ammo["rendermode"] = "10";
-
-			return ammo;
-		}
-
-		private Entity CreateTargetGiveItem(string itemName, Vector3 origin, string count)
-		{
-			var item = new Entity();
-
-			item.ClassName = itemName;
-			item.Origin = origin;
-			item["resettime"] = "-1"; // Only use once
-			item["rendermode"] = "10";
-
-			if (itemName == "momentum_powerup_haste")
-				item["hastetime"] = ConvertPowerupCount(count);
-			else if (itemName == "momentum_powerup_damage_boost")
-				item["damageboosttime"] = ConvertPowerupCount(count);
-
-			return item;
 		}
 
 		private void ConvertTriggerHurt(Entity trigger)
@@ -991,7 +899,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = output,
-				target = "!activator",
+				target = "!player",
 				action = "RemoveWeapon",
 				param = weaponName,
 				delay = delay,
@@ -1061,7 +969,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = output,
-				target = "!activator",
+				target = "!player",
 				action = "SetHaste",
 				param = duration,
 				delay = delay,
@@ -1075,7 +983,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = output,
-				target = "!activator",
+				target = "!player",
 				action = "SetDamageBoost",
 				param = duration,
 				delay = delay,
@@ -1094,7 +1002,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = output,
-				target = "!activator",
+				target = "!player",
 				action = "GiveWeapon",
 				param = weaponName,
 				delay = delay + 0.008f, //hack to make giving weapon happen after target_init strip
@@ -1118,7 +1026,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = output,
-				target = "!activator",
+				target = "!player",
 				action = ammoType,
 				param = count,
 				delay = delay,
@@ -1194,7 +1102,7 @@ namespace BSPConvert.Lib
 			var connection = new Entity.EntityConnection()
 			{
 				name = output,
-				target = "!activator",
+				target = "!player",
 				action = ammoOutput,
 				param = count,
 				delay = delay + 0.008f, //hack to make adding ammo happen after setting ammo
