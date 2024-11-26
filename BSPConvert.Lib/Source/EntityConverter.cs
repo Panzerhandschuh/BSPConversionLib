@@ -407,9 +407,8 @@ namespace BSPConvert.Lib
 			{
 				var logicAuto = new Entity();
 				logicAuto.ClassName = "logic_auto";
-				logicAuto["target"] = playerStart["target"];
 
-				ConvertEntityTargetsRecursive(logicAuto, logicAuto, "OnMapSpawn", 0, new HashSet<Entity>());
+				ConvertEntityTargetsRecursive(logicAuto, playerStart, "OnMapSpawn", 0, new HashSet<Entity>());
 
 				sourceEntities.Add(logicAuto);
 			}
